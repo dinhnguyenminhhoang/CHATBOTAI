@@ -146,7 +146,7 @@ const Chat = () => {
             fontWeight: "600",
           }}
         >
-          Mô hình - GPT 4.0 Mini
+          Mô hình - GPT 4o
         </Typography>
         <Box
           sx={{

@@ -1,35 +1,39 @@
-const { OpenAIApi } = require("openai");
-const { configureOpenAI } = require("../config/openai-config.js");
+const { openai } = require("../config/openai-config.js");
 const User = require("../models/User.js");
 const generateChatCompletion = async (req, res, next) => {
   const { message } = req.body;
   try {
     const user = await User.findById(res.locals.jwtData.id);
-    if (!user)
+    if (!user) {
       return res
         .status(401)
         .json({ message: "User not registered OR Token malfunctioned" });
-    // grab chats of user
-    const chats = user.chats.map(({ role, content }) => ({
-      role,
-      content,
-    }));
-    chats.push({ content: message, role: "user" });
-    user.chats.push({ content: message, role: "user" });
+    }
 
-    // send all chats with new one to openAI API
-    const config = configureOpenAI();
-    const openai = new OpenAIApi(config);
-    // get latest response
-    const chatResponse = await openai.createChatCompletion({
-      model: "gpt-4o-mini",
-      messages: chats,
+    // Tạo đối tượng chat của user
+    const userMessage = { content: message, role: "user" };
+    user.chats.push(userMessage);
+
+    // Gửi request đến OpenAI
+    const chatResponse = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: message }],
+      temperature: 0.7,
     });
-    user.chats.push(chatResponse.data.choices[0].message);
+
+    // Đảm bảo response có nội dung hợp lệ
+    const botReply =
+      chatResponse.choices[0].message?.content || "Xin lỗi, tôi không hiểu.";
+
+    // Push phản hồi từ bot vào `user.chats` dưới dạng object
+    user.chats.push({ content: botReply, role: "assistant" });
+
+    // Lưu vào database
     await user.save();
+
     return res.status(200).json({ chats: user.chats });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return res.status(500).json({ message: "Something went wrong" });
   }
 };
